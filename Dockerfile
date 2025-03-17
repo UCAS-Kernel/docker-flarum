@@ -1,9 +1,9 @@
-FROM alpine:latest
+FROM php:8.3.19-fpm-alpine3.20
 
 LABEL description="Simple forum software for building great communities" \
       maintainer="Magicalex <magicalex@mondedie.fr>, Hardware <hardware@mondedie.fr>"
 
-ARG VERSION=v1.0.3
+ARG VERSION=dev-dev
 
 ENV GID=991 \
     UID=991 \
@@ -25,44 +25,35 @@ RUN apk add --no-progress --no-cache \
     git \
     libcap \
     nginx \
-    php8 \
-    php8-ctype \
-    php8-curl \
-    php8-dom \
-    php8-exif \
-    php8-fileinfo \
-    php8-fpm \
-    php8-gd \
-    php8-gmp \
-    php8-iconv \
-    php8-intl \
-    php8-mbstring \
-    php8-mysqlnd \
-    php8-opcache \
-    php8-pecl-apcu \
-    php8-openssl \
-    php8-pdo \
-    php8-pdo_mysql \
-    php8-phar \
-    php8-session \
-    php8-tokenizer \
-    php8-xmlwriter \
-    php8-zip \
-    php8-zlib \
     su-exec \
-    s6 \
-  && cd /tmp \
-  && ln -s /usr/bin/php8 /usr/bin/php \
+    s6 
+ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN install-php-extensions \
+      exif gd gmp \
+      intl opcache apcu \
+      pdo_mysql zip 
+      
+RUN cd /tmp \
   && curl --progress-bar http://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
-  && sed -i 's/memory_limit = .*/memory_limit = ${PHP_MEMORY_LIMIT}/' /etc/php8/php.ini \
+  && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+  && sed -i 's/memory_limit = .*/memory_limit = ${PHP_MEMORY_LIMIT}/' "$PHP_INI_DIR/php.ini" \
   && chmod +x /usr/local/bin/composer \
   && mkdir -p /run/php /flarum/app \
-  && COMPOSER_CACHE_DIR="/tmp" composer create-project karuboniru/flarum:$VERSION /flarum/app \
+  && rm -rf /tmp/*
+
+RUN COMPOSER_CACHE_DIR="/tmp" composer create-project karuboniru/flarum:$VERSION /flarum/app \
   && composer clear-cache \
   && rm -rf /flarum/.composer /tmp/* \
   && setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/nginx
 
 COPY rootfs /
+RUN cp -a /etc/php8/conf.d /usr/local/etc/php/ && \
+    cp -a /etc/php8/php-fpm.d /usr/local/etc/ && \
+    rm -rf /etc/php8/conf.d /etc/php8/php-fpm.d && \
+    ln -s /usr/local/etc/php/conf.d /etc/php8 && \
+    ln -s /usr/local/etc/php-fpm.d /etc/php8 && \
+    rm /usr/local/etc/php-fpm.d/zz-docker.conf
+
 RUN chmod +x /usr/local/bin/* /etc/s6.d/*/run /etc/s6.d/.s6-svscan/*
 VOLUME /etc/nginx/flarum /flarum/app/extensions /flarum/app/public/assets /flarum/app/storage/logs
 CMD ["/usr/local/bin/startup"]

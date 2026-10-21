@@ -25,7 +25,17 @@
 
 ### Build-time variables
 
-- **VERSION** = Version of [flarum/flarum](https://github.com/flarum/flarum) skeleton (default: *v1.0.0*)
+- **VERSION** = Version of the [karuboniru/flarum](https://github.com/UCAS-Kernel/flarum) skeleton (default: *dev-dev*)
+
+The build overrides the skeleton's core dependency with Flarum Core **1.8.20** and
+removes `kyrne/websocket`, whose dependencies conflict with patched Guzzle versions.
+APCu **5.1.28** is installed from its upstream GitHub
+release to avoid PECL REST metadata failures.
+
+Following [Flarum's upgrade guidance](https://docs.flarum.org/update/), the build
+ignores only **GHSA-cxf4-7mrp-vvpr**: Flarum 1.x requires Flysystem 1.x, which has
+no patched release for its malformed UTF-8 path validation issue. This exception
+does not fix the vulnerability; all other advisory blocking remains enabled.
 
 ### Ports
 

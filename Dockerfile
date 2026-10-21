@@ -28,9 +28,10 @@ RUN apk add --no-progress --no-cache \
     su-exec \
     s6 
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+# Use the upstream APCu release source to avoid PECL REST metadata failures.
 RUN install-php-extensions \
       exif gd gmp \
-      intl opcache apcu \
+      intl opcache krakjoe/apcu@v5.1.28 \
       pdo_mysql zip 
       
 RUN cd /tmp \
@@ -41,7 +42,14 @@ RUN cd /tmp \
   && mkdir -p /run/php /flarum/app \
   && rm -rf /tmp/*
 
-RUN COMPOSER_CACHE_DIR="/tmp" composer create-project karuboniru/flarum:$VERSION /flarum/app \
+# Override the skeleton's outdated pins before resolving dependencies.
+# Flarum 1.x requires Flysystem 1.x, which has no fix for GHSA-cxf4-7mrp-vvpr.
+# Keep all other advisory blocking enabled: https://docs.flarum.org/update/
+RUN COMPOSER_CACHE_DIR="/tmp" composer create-project --no-install karuboniru/flarum:$VERSION /flarum/app \
+  && composer --working-dir=/flarum/app remove --no-update kyrne/websocket \
+  && composer --working-dir=/flarum/app require --no-update flarum/core:1.8.20 \
+  && composer --working-dir=/flarum/app config --json audit.ignore '{"GHSA-cxf4-7mrp-vvpr":"Flarum 1.x requires Flysystem 1.x, which has no patched release"}' \
+  && COMPOSER_CACHE_DIR="/tmp" composer --working-dir=/flarum/app update --no-interaction \
   && composer clear-cache \
   && rm -rf /flarum/.composer /tmp/* \
   && setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/nginx

@@ -1,4 +1,4 @@
-FROM php:8.3.19-fpm-alpine3.20
+FROM php:8.3.36-fpm-alpine3.23
 
 LABEL description="Simple forum software for building great communities" \
       maintainer="Magicalex <magicalex@mondedie.fr>, Hardware <hardware@mondedie.fr>"
